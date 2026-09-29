@@ -6,7 +6,7 @@ const path=require('node:path');
  const context=await browser.newContext({viewport:{width:390,height:844},deviceScaleFactor:2,acceptDownloads:true,serviceWorkers:'allow'});
  const page=await context.newPage();const errors=[];
  page.on('pageerror',e=>errors.push(e.message));
- await page.goto('http://127.0.0.1:8779/');await page.locator('#name').fill('우유');await page.locator('#add').click();
+ await page.goto(process.env.SAJA_URL||'http://127.0.0.1:8779/');await page.locator('#name').fill('우유');await page.locator('#add').click();
  await page.getByText('우유',{exact:true}).waitFor();
  await page.locator('[data-action=move]').click();await page.locator('[data-tab=want]').click();await page.getByText('우유',{exact:true}).waitFor();
  await page.locator('[data-action=done]').click();await page.locator('[data-tab=done]').click();await page.getByText('우유',{exact:true}).waitFor();
