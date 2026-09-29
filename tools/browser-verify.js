@@ -1,0 +1,33 @@
+const {chromium}=require('playwright-core');
+const assert=require('node:assert/strict');
+const path=require('node:path');
+(async()=>{
+ const browser=await chromium.launch({headless:true,executablePath:'C:/Program Files/Google/Chrome/Application/chrome.exe'});
+ const context=await browser.newContext({viewport:{width:390,height:844},deviceScaleFactor:2,acceptDownloads:true,serviceWorkers:'allow'});
+ const page=await context.newPage();const errors=[];
+ page.on('pageerror',e=>errors.push(e.message));
+ await page.goto('http://127.0.0.1:8779/');await page.locator('#name').fill('우유');await page.locator('#add').click();
+ await page.getByText('우유',{exact:true}).waitFor();
+ await page.locator('[data-action=move]').click();await page.locator('[data-tab=want]').click();await page.getByText('우유',{exact:true}).waitFor();
+ await page.locator('[data-action=done]').click();await page.locator('[data-tab=done]').click();await page.getByText('우유',{exact:true}).waitFor();
+ await page.locator('[data-action=restore]').click();await page.locator('[data-tab=want]').click();await page.getByText('우유',{exact:true}).waitFor();
+ await page.reload();await page.locator('[data-tab=want]').click();await page.getByText('우유',{exact:true}).waitFor();
+ const metrics=await page.evaluate(()=>({viewport:innerWidth,scroll:document.documentElement.scrollWidth,addRight:document.querySelector('#add').getBoundingClientRect().right,tabsRight:document.querySelector('.tabs').getBoundingClientRect().right}));
+ assert.ok(metrics.scroll<=390&&metrics.addRight<=390,JSON.stringify(metrics));
+ await page.screenshot({path:'C:/Users/user/AppData/Local/hermes/cache/scratch/saja-real.png'});
+ await page.locator('.settings summary').click();
+ const downloadPromise=page.waitForEvent('download');await page.locator('#export').click();const download=await downloadPromise;
+ const stream=await download.createReadStream();let json='';for await(const chunk of stream)json+=chunk.toString('utf8');
+ assert.equal(JSON.parse(json).items.length,1);
+ let dialogs=0;page.on('dialog',d=>{dialogs++;d.accept();});
+ await page.locator('#import').setInputFiles({name:'restore.json',mimeType:'application/json',buffer:Buffer.from(json)});
+ await page.waitForFunction(()=>document.querySelector('#backupStatus').textContent.includes('복원 완료'));
+ assert.equal(dialogs,2);
+ await page.reload();await page.locator('[data-tab=want]').click();await page.getByText('우유',{exact:true}).waitFor();
+ // service worker active after at least one reload; offline refresh must still render stored data
+ await page.waitForFunction(()=>navigator.serviceWorker.controller!==null);
+ await context.setOffline(true);await page.reload();await page.locator('[data-tab=want]').click();await page.getByText('우유',{exact:true}).waitFor();
+ assert.deepEqual(errors,[]);
+ console.log(JSON.stringify({result:'PASS',metrics,backupItems:1,dialogs,offline:true,errors},null,2));
+ await browser.close();
+})().catch(e=>{console.error(e);process.exit(1);});
